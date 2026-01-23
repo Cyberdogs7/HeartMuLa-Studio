@@ -53,6 +53,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          provenance: false  # Disable provenance attestations for consistency
 
   build-and-push-dockerhub:
     runs-on: ubuntu-latest
@@ -89,3 +90,4 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
+          provenance: false  # Disable provenance attestations (fixes 400 error on Docker Hub)
