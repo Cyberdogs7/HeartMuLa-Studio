@@ -92,6 +92,8 @@ RUN git clone https://github.com/HeartMuLa/heartlib.git /tmp/heartlib && \
     sed -i '/torchaudio==/d' /tmp/heartlib/setup.py || true && \
     sed -i '/torchvision==/d' /tmp/heartlib/pyproject.toml || true && \
     sed -i '/torchvision==/d' /tmp/heartlib/setup.py || true && \
+    sed -i '/bitsandbytes==/d' /tmp/heartlib/pyproject.toml || true && \
+    sed -i '/bitsandbytes==/d' /tmp/heartlib/setup.py || true && \
     pip3 install --no-cache-dir /tmp/heartlib -c /tmp/constraints.txt && \
     rm -rf /tmp/heartlib
 
