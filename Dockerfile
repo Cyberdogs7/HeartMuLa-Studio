@@ -72,8 +72,8 @@ RUN pip3 install --no-cache-dir triton && \
 # We skip installing them manually to avoid conflicts and leverage the optimized versions.
 
 # Generate constraints file to lock system packages (torch, torchaudio, etc.)
-# This prevents pip from accidentally upgrading NVIDIA-optimized packages to incompatible PyPI wheels
-RUN pip3 freeze > /tmp/constraints.txt
+# We only lock torch and numpy related packages to avoid conflicts with other requirements (like requests)
+RUN pip3 freeze | grep -E "^torch|^numpy" > /tmp/constraints.txt
 
 # Layer 2: Other requirements (using constraints to protect system packages)
 RUN pip3 install --no-cache-dir -r /app/backend/requirements.txt -c /tmp/constraints.txt
