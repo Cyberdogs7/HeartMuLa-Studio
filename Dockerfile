@@ -56,6 +56,9 @@ COPY --chown=heartmula:heartmula backend/requirements.txt /app/backend/
 # Layer 1: pip upgrade
 RUN pip3 install --no-cache-dir --upgrade pip
 
+# Ensure compatible NumPy version (avoid NumPy 2.x which breaks some libs)
+RUN pip3 install --no-cache-dir "numpy<2"
+
 # Note: PyTorch, torchvision, and torchaudio are already installed in the base image.
 # We skip installing them manually to avoid conflicts and leverage the optimized versions.
 
