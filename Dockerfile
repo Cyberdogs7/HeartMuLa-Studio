@@ -23,25 +23,23 @@ RUN npm run build
 # =============================================================================
 # Stage 2: Final Image with Python + CUDA
 # =============================================================================
-FROM nvidia/cuda:12.1.0-cudnn8-runtime-ubuntu22.04
+# Use NVIDIA PyTorch container which includes CUDA and PyTorch pre-installed
+# and is optimized for ARM64/GH100
+FROM nvcr.io/nvidia/pytorch:24.02-py3
 
 # Prevent interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install system dependencies
+# Note: Python, GCC, etc. are usually included in the base image, but we ensure
+# specific runtime deps like ffmpeg are present.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3.11 \
-    python3.11-venv \
-    python3.11-dev \
-    python3-pip \
     git \
     ffmpeg \
     libsndfile1 \
     gcc \
     g++ \
-    && rm -rf /var/lib/apt/lists/* \
-    && ln -sf /usr/bin/python3.11 /usr/bin/python3 \
-    && ln -sf /usr/bin/python3.11 /usr/bin/python
+    && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
@@ -54,20 +52,17 @@ RUN useradd -m -u 1000 heartmula && \
 # Copy backend requirements first for better caching
 COPY --chown=heartmula:heartmula backend/requirements.txt /app/backend/
 
-# Install Python dependencies in separate layers for smaller Docker Hub uploads
+# Install Python dependencies
 # Layer 1: pip upgrade
 RUN pip3 install --no-cache-dir --upgrade pip
 
-# Layer 2: PyTorch (largest dependency ~800MB)
-RUN pip3 install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cu121
+# Note: PyTorch, torchvision, and torchaudio are already installed in the base image.
+# We skip installing them manually to avoid conflicts and leverage the optimized versions.
 
-# Layer 3: torchvision and torchaudio
-RUN pip3 install --no-cache-dir torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-
-# Layer 4: Other requirements
+# Layer 2: Other requirements
 RUN pip3 install --no-cache-dir -r /app/backend/requirements.txt
 
-# Layer 5: bitsandbytes and accelerate
+# Layer 3: bitsandbytes and accelerate
 RUN pip3 install --no-cache-dir bitsandbytes accelerate
 
 # Copy backend code
