@@ -40,6 +40,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
     cmake \
+    ninja-build \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -75,10 +76,18 @@ RUN pip3 install --no-cache-dir -r /app/backend/requirements.txt
 # Layer 3: Force clean reinstall of core ML libs to fix 'GenerationMixin' errors
 RUN pip3 install --force-reinstall --no-cache-dir transformers accelerate bitsandbytes
 
-# Layer 4: Fix torchaudio ABI mismatch by pinning versions matching the base image's PyTorch (2.3.0)
-# We use --no-deps to ensure we don't accidentally upgrade the NVIDIA-optimized PyTorch
+# Layer 4: Fix torchaudio ABI mismatch by building from source against system torch
+# This resolves "OSError: undefined symbol" by linking against the NVIDIA PyTorch headers
 RUN pip3 uninstall -y torchaudio torchvision && \
-    pip3 install --no-cache-dir --no-deps torchaudio==2.3.0 torchvision==0.18.0
+    cd /tmp && \
+    git clone --depth 1 -b v2.3.0 https://github.com/pytorch/audio.git && \
+    cd audio && \
+    pip3 install . --no-deps --no-cache-dir && \
+    cd .. && rm -rf audio && \
+    git clone --depth 1 -b v0.18.0 https://github.com/pytorch/vision.git && \
+    cd vision && \
+    pip3 install . --no-deps --no-cache-dir && \
+    cd .. && rm -rf vision
 
 # Copy backend code
 COPY --chown=heartmula:heartmula backend/ /app/backend/
