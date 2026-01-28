@@ -62,6 +62,9 @@ RUN pip3 uninstall -y numpy scipy pandas
 # Ensure compatible NumPy version (avoid NumPy 2.x which breaks some libs)
 RUN pip3 install --no-cache-dir "numpy<2"
 
+# Install Triton (required by torchtune/HeartMuLa but sometimes missing/broken)
+RUN pip3 install --no-cache-dir triton
+
 # Note: PyTorch, torchvision, and torchaudio are already installed in the base image.
 # We skip installing them manually to avoid conflicts and leverage the optimized versions.
 
