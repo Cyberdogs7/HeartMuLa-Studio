@@ -71,25 +71,16 @@ RUN pip3 install --no-cache-dir triton && \
 # Note: PyTorch, torchvision, and torchaudio are already installed in the base image.
 # We skip installing them manually to avoid conflicts and leverage the optimized versions.
 
-# Layer 2: Other requirements
-RUN pip3 install --no-cache-dir -r /app/backend/requirements.txt
+# Generate constraints file to lock system packages (torch, torchaudio, etc.)
+# This prevents pip from accidentally upgrading NVIDIA-optimized packages to incompatible PyPI wheels
+RUN pip3 freeze > /tmp/constraints.txt
 
-# Layer 3: Fix torchaudio ABI mismatch by building from source against system torch
-# This resolves "OSError: undefined symbol" by linking against the NVIDIA PyTorch headers
-RUN pip3 uninstall -y torchaudio torchvision && \
-    cd /tmp && \
-    git clone --depth 1 -b v2.3.0 https://github.com/pytorch/audio.git && \
-    cd audio && \
-    pip3 install . --no-deps --no-build-isolation --no-cache-dir && \
-    cd .. && rm -rf audio && \
-    git clone --depth 1 -b v0.18.0 https://github.com/pytorch/vision.git && \
-    cd vision && \
-    pip3 install . --no-deps --no-build-isolation --no-cache-dir && \
-    cd .. && rm -rf vision
+# Layer 2: Other requirements (using constraints to protect system packages)
+RUN pip3 install --no-cache-dir -r /app/backend/requirements.txt -c /tmp/constraints.txt
 
-# Layer 4: Force clean reinstall of core ML libs to fix 'GenerationMixin' errors
-# We do this LAST to ensure they link against the correct stack
-RUN pip3 install --force-reinstall --no-cache-dir transformers accelerate bitsandbytes tokenizers sentencepiece
+# Layer 3: Force clean reinstall of core ML libs to fix 'GenerationMixin' errors
+# We also use constraints here to ensure they link against the system torch
+RUN pip3 install --force-reinstall --no-cache-dir transformers accelerate bitsandbytes tokenizers sentencepiece -c /tmp/constraints.txt
 
 # Copy backend code
 COPY --chown=heartmula:heartmula backend/ /app/backend/
