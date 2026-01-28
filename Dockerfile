@@ -82,11 +82,11 @@ RUN pip3 uninstall -y torchaudio torchvision && \
     cd /tmp && \
     git clone --depth 1 -b v2.3.0 https://github.com/pytorch/audio.git && \
     cd audio && \
-    pip3 install . --no-deps --no-cache-dir && \
+    pip3 install . --no-deps --no-build-isolation --no-cache-dir && \
     cd .. && rm -rf audio && \
     git clone --depth 1 -b v0.18.0 https://github.com/pytorch/vision.git && \
     cd vision && \
-    pip3 install . --no-deps --no-cache-dir && \
+    pip3 install . --no-deps --no-build-isolation --no-cache-dir && \
     cd .. && rm -rf vision
 
 # Copy backend code
