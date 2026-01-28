@@ -65,17 +65,14 @@ RUN pip3 install --no-cache-dir "numpy<2"
 # Install Triton (required by torchtune/HeartMuLa but sometimes missing/broken)
 RUN pip3 install --no-cache-dir triton
 
-# Re-install transformers and accelerate cleanly
-RUN pip3 install --no-cache-dir transformers accelerate
-
 # Note: PyTorch, torchvision, and torchaudio are already installed in the base image.
 # We skip installing them manually to avoid conflicts and leverage the optimized versions.
 
 # Layer 2: Other requirements
 RUN pip3 install --no-cache-dir -r /app/backend/requirements.txt
 
-# Layer 3: bitsandbytes and accelerate
-RUN pip3 install --no-cache-dir bitsandbytes accelerate
+# Layer 3: Force clean reinstall of core ML libs to fix 'GenerationMixin' errors
+RUN pip3 install --force-reinstall --no-cache-dir transformers accelerate bitsandbytes
 
 # Copy backend code
 COPY --chown=heartmula:heartmula backend/ /app/backend/
