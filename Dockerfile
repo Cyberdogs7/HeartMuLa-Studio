@@ -80,20 +80,18 @@ RUN pip3 freeze | grep -E "^torch|^numpy" > /tmp/constraints.txt
 RUN sed -i '/heartlib/d' /app/backend/requirements.txt && \
     pip3 install --no-cache-dir -r /app/backend/requirements.txt -c /tmp/constraints.txt
 
-# Layer 2.5: Install patched heartlib (relaxing requirements to match system packages)
+# Layer 2.5: Install patched heartlib (removing strict requirements to use system packages)
 RUN git clone https://github.com/HeartMuLa/heartlib.git /tmp/heartlib && \
-    # Relax numpy requirement
-    sed -i 's/numpy==2.0.2/numpy>=1.26/g' /tmp/heartlib/pyproject.toml || true && \
-    sed -i 's/numpy==2.0.2/numpy>=1.26/g' /tmp/heartlib/setup.py || true && \
-    # Relax torch requirement (use >=2.2.0 to include 2.3.0a0 pre-release)
-    sed -i 's/torch==2.4.1/torch>=2.2.0/g' /tmp/heartlib/pyproject.toml || true && \
-    sed -i 's/torch==2.4.1/torch>=2.2.0/g' /tmp/heartlib/setup.py || true && \
-    # Relax torchaudio requirement
-    sed -i 's/torchaudio==2.4.1/torchaudio>=2.2.0/g' /tmp/heartlib/pyproject.toml || true && \
-    sed -i 's/torchaudio==2.4.1/torchaudio>=2.2.0/g' /tmp/heartlib/setup.py || true && \
-    # Relax torchvision requirement
-    sed -i 's/torchvision==0.19.1/torchvision>=0.17.0/g' /tmp/heartlib/pyproject.toml || true && \
-    sed -i 's/torchvision==0.19.1/torchvision>=0.17.0/g' /tmp/heartlib/setup.py || true && \
+    # Remove strict dependency checks to prevent pip from conflicting with system packages
+    # We rely on the base image providing correct torch/numpy/audio/vision versions
+    sed -i '/numpy==/d' /tmp/heartlib/pyproject.toml || true && \
+    sed -i '/numpy==/d' /tmp/heartlib/setup.py || true && \
+    sed -i '/torch==/d' /tmp/heartlib/pyproject.toml || true && \
+    sed -i '/torch==/d' /tmp/heartlib/setup.py || true && \
+    sed -i '/torchaudio==/d' /tmp/heartlib/pyproject.toml || true && \
+    sed -i '/torchaudio==/d' /tmp/heartlib/setup.py || true && \
+    sed -i '/torchvision==/d' /tmp/heartlib/pyproject.toml || true && \
+    sed -i '/torchvision==/d' /tmp/heartlib/setup.py || true && \
     pip3 install --no-cache-dir /tmp/heartlib -c /tmp/constraints.txt && \
     rm -rf /tmp/heartlib
 
