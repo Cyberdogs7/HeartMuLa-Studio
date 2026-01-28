@@ -85,15 +85,15 @@ RUN git clone https://github.com/HeartMuLa/heartlib.git /tmp/heartlib && \
     # Relax numpy requirement
     sed -i 's/numpy==2.0.2/numpy>=1.26/g' /tmp/heartlib/pyproject.toml || true && \
     sed -i 's/numpy==2.0.2/numpy>=1.26/g' /tmp/heartlib/setup.py || true && \
-    # Relax torch requirement
-    sed -i 's/torch==2.4.1/torch>=2.3.0/g' /tmp/heartlib/pyproject.toml || true && \
-    sed -i 's/torch==2.4.1/torch>=2.3.0/g' /tmp/heartlib/setup.py || true && \
+    # Relax torch requirement (use >=2.2.0 to include 2.3.0a0 pre-release)
+    sed -i 's/torch==2.4.1/torch>=2.2.0/g' /tmp/heartlib/pyproject.toml || true && \
+    sed -i 's/torch==2.4.1/torch>=2.2.0/g' /tmp/heartlib/setup.py || true && \
     # Relax torchaudio requirement
-    sed -i 's/torchaudio==2.4.1/torchaudio>=2.3.0/g' /tmp/heartlib/pyproject.toml || true && \
-    sed -i 's/torchaudio==2.4.1/torchaudio>=2.3.0/g' /tmp/heartlib/setup.py || true && \
+    sed -i 's/torchaudio==2.4.1/torchaudio>=2.2.0/g' /tmp/heartlib/pyproject.toml || true && \
+    sed -i 's/torchaudio==2.4.1/torchaudio>=2.2.0/g' /tmp/heartlib/setup.py || true && \
     # Relax torchvision requirement
-    sed -i 's/torchvision==0.19.1/torchvision>=0.18.0/g' /tmp/heartlib/pyproject.toml || true && \
-    sed -i 's/torchvision==0.19.1/torchvision>=0.18.0/g' /tmp/heartlib/setup.py || true && \
+    sed -i 's/torchvision==0.19.1/torchvision>=0.17.0/g' /tmp/heartlib/pyproject.toml || true && \
+    sed -i 's/torchvision==0.19.1/torchvision>=0.17.0/g' /tmp/heartlib/setup.py || true && \
     pip3 install --no-cache-dir /tmp/heartlib -c /tmp/constraints.txt && \
     rm -rf /tmp/heartlib
 
