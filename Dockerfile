@@ -57,13 +57,16 @@ COPY --chown=heartmula:heartmula backend/requirements.txt /app/backend/
 RUN pip3 install --no-cache-dir --upgrade pip
 
 # Force uninstall potential incompatible pre-installed versions
-RUN pip3 uninstall -y numpy scipy pandas transformers
+RUN pip3 uninstall -y numpy scipy pandas transformers accelerate
 
 # Ensure compatible NumPy version (avoid NumPy 2.x which breaks some libs)
 RUN pip3 install --no-cache-dir "numpy<2"
 
 # Install Triton (required by torchtune/HeartMuLa but sometimes missing/broken)
 RUN pip3 install --no-cache-dir triton
+
+# Re-install transformers and accelerate cleanly
+RUN pip3 install --no-cache-dir transformers accelerate
 
 # Note: PyTorch, torchvision, and torchaudio are already installed in the base image.
 # We skip installing them manually to avoid conflicts and leverage the optimized versions.
