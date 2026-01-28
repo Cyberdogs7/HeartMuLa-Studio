@@ -128,7 +128,8 @@ ENV PYTHONUNBUFFERED=1 \
     HEARTMULA_4BIT=auto \
     HEARTMULA_SEQUENTIAL_OFFLOAD=auto \
     HF_HOME=/app/backend/models \
-    TORCHINDUCTOR_CACHE_DIR=/tmp/torch_cache
+    TORCHINDUCTOR_CACHE_DIR=/tmp/torch_cache \
+    LD_LIBRARY_PATH=/usr/local/lib/python3.10/dist-packages/torch/lib:$LD_LIBRARY_PATH
 
 # Expose port
 EXPOSE 8000
