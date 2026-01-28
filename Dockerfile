@@ -71,9 +71,9 @@ RUN pip3 install --no-cache-dir triton && \
 # Note: PyTorch, torchvision, and torchaudio are already installed in the base image.
 # We skip installing them manually to avoid conflicts and leverage the optimized versions.
 
-# Generate constraints file to lock system packages (torch, torchaudio, etc.)
-# We only lock torch and numpy related packages to avoid conflicts with other requirements (like requests)
-RUN pip3 freeze | grep -E "^torch|^numpy" > /tmp/constraints.txt
+# Generate constraints file to lock system packages (torch, numpy)
+# We exclude torchaudio/torchvision from constraints because we will rebuild them
+RUN pip3 freeze | grep -E "^torch==|^numpy" > /tmp/constraints.txt
 
 # Layer 2: Other requirements (using constraints to protect system packages)
 # We manually handle heartlib to patch its numpy requirement, so we remove it from requirements.txt first
@@ -83,7 +83,6 @@ RUN sed -i '/heartlib/d' /app/backend/requirements.txt && \
 # Layer 2.5: Install patched heartlib (removing strict requirements to use system packages)
 RUN git clone https://github.com/HeartMuLa/heartlib.git /tmp/heartlib && \
     # Remove strict dependency checks to prevent pip from conflicting with system packages
-    # We rely on the base image providing correct torch/numpy/audio/vision versions
     sed -i '/numpy==/d' /tmp/heartlib/pyproject.toml || true && \
     sed -i '/numpy==/d' /tmp/heartlib/setup.py || true && \
     sed -i '/torch==/d' /tmp/heartlib/pyproject.toml || true && \
@@ -97,7 +96,20 @@ RUN git clone https://github.com/HeartMuLa/heartlib.git /tmp/heartlib && \
     pip3 install --no-cache-dir /tmp/heartlib -c /tmp/constraints.txt && \
     rm -rf /tmp/heartlib
 
-# Layer 3: Force clean reinstall of core ML libs to fix 'GenerationMixin' errors
+# Layer 3: Rebuild torchaudio/torchvision from source to match system torch ABI
+# This resolves "OSError: undefined symbol" and "ModuleNotFoundError"
+RUN pip3 uninstall -y torchaudio torchvision && \
+    cd /tmp && \
+    git clone --depth 1 -b v2.3.0 https://github.com/pytorch/audio.git && \
+    cd audio && \
+    pip3 install . --no-deps --no-build-isolation --no-cache-dir && \
+    cd .. && rm -rf audio && \
+    git clone --depth 1 -b v0.18.0 https://github.com/pytorch/vision.git && \
+    cd vision && \
+    pip3 install . --no-deps --no-build-isolation --no-cache-dir && \
+    cd .. && rm -rf vision
+
+# Layer 4: Force clean reinstall of core ML libs to fix 'GenerationMixin' errors
 # We also use constraints here to ensure they link against the system torch
 RUN pip3 install --force-reinstall --no-cache-dir transformers accelerate bitsandbytes tokenizers sentencepiece -c /tmp/constraints.txt
 
