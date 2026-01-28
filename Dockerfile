@@ -75,10 +75,10 @@ RUN pip3 install --no-cache-dir -r /app/backend/requirements.txt
 # Layer 3: Force clean reinstall of core ML libs to fix 'GenerationMixin' errors
 RUN pip3 install --force-reinstall --no-cache-dir transformers accelerate bitsandbytes
 
-# Layer 4: Fix torchaudio ABI mismatch by recompiling against system torch
-# This fixes "OSError: undefined symbol" caused by pip installing generic binary wheels
+# Layer 4: Fix torchaudio ABI mismatch by pinning versions matching the base image's PyTorch (2.3.0)
+# We use --no-deps to ensure we don't accidentally upgrade the NVIDIA-optimized PyTorch
 RUN pip3 uninstall -y torchaudio torchvision && \
-    pip3 install --no-cache-dir --no-binary torchaudio,torchvision torchaudio torchvision
+    pip3 install --no-cache-dir --no-deps torchaudio==2.3.0 torchvision==0.18.0
 
 # Copy backend code
 COPY --chown=heartmula:heartmula backend/ /app/backend/
