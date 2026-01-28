@@ -74,10 +74,7 @@ RUN pip3 install --no-cache-dir triton && \
 # Layer 2: Other requirements
 RUN pip3 install --no-cache-dir -r /app/backend/requirements.txt
 
-# Layer 3: Force clean reinstall of core ML libs to fix 'GenerationMixin' errors
-RUN pip3 install --force-reinstall --no-cache-dir transformers accelerate bitsandbytes
-
-# Layer 4: Fix torchaudio ABI mismatch by building from source against system torch
+# Layer 3: Fix torchaudio ABI mismatch by building from source against system torch
 # This resolves "OSError: undefined symbol" by linking against the NVIDIA PyTorch headers
 RUN pip3 uninstall -y torchaudio torchvision && \
     cd /tmp && \
@@ -89,6 +86,10 @@ RUN pip3 uninstall -y torchaudio torchvision && \
     cd vision && \
     pip3 install . --no-deps --no-build-isolation --no-cache-dir && \
     cd .. && rm -rf vision
+
+# Layer 4: Force clean reinstall of core ML libs to fix 'GenerationMixin' errors
+# We do this LAST to ensure they link against the correct stack
+RUN pip3 install --force-reinstall --no-cache-dir transformers accelerate bitsandbytes tokenizers sentencepiece
 
 # Copy backend code
 COPY --chown=heartmula:heartmula backend/ /app/backend/
