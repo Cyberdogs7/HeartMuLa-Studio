@@ -76,7 +76,16 @@ RUN pip3 install --no-cache-dir triton && \
 RUN pip3 freeze | grep -E "^torch|^numpy" > /tmp/constraints.txt
 
 # Layer 2: Other requirements (using constraints to protect system packages)
-RUN pip3 install --no-cache-dir -r /app/backend/requirements.txt -c /tmp/constraints.txt
+# We manually handle heartlib to patch its numpy requirement, so we remove it from requirements.txt first
+RUN sed -i '/heartlib/d' /app/backend/requirements.txt && \
+    pip3 install --no-cache-dir -r /app/backend/requirements.txt -c /tmp/constraints.txt
+
+# Layer 2.5: Install patched heartlib (relaxing numpy requirement)
+RUN git clone https://github.com/HeartMuLa/heartlib.git /tmp/heartlib && \
+    sed -i 's/numpy==2.0.2/numpy>=1.26/g' /tmp/heartlib/pyproject.toml || true && \
+    sed -i 's/numpy==2.0.2/numpy>=1.26/g' /tmp/heartlib/setup.py || true && \
+    pip3 install --no-cache-dir /tmp/heartlib -c /tmp/constraints.txt && \
+    rm -rf /tmp/heartlib
 
 # Layer 3: Force clean reinstall of core ML libs to fix 'GenerationMixin' errors
 # We also use constraints here to ensure they link against the system torch
