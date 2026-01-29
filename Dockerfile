@@ -116,15 +116,19 @@ RUN pip3 install --upgrade --no-cache-dir transformers accelerate bitsandbytes t
 
 # Fix runtime linking for libtorch_cuda.so (required by torchaudio)
 # We dynamically find the torch lib path and symlink libs to /usr/lib to ensure loader finds them
+# CAUTION: Do NOT overwrite libtorch_cpu.so if it exists, as it breaks libshm.so
 RUN export TORCH_LIB_PATH=$(python3 -c "import torch; import os; print(os.path.join(os.path.dirname(torch.__file__), 'lib'))") && \
     echo "$TORCH_LIB_PATH" > /etc/ld.so.conf.d/torch.conf && \
     ldconfig && \
-    if [ -f "$TORCH_LIB_PATH/libtorch.so" ]; then \
+    if [ -f "$TORCH_LIB_PATH/libtorch.so" ] && [ ! -f "$TORCH_LIB_PATH/libtorch_cuda.so" ]; then \
         ln -sf "$TORCH_LIB_PATH/libtorch.so" "$TORCH_LIB_PATH/libtorch_cuda.so"; \
-        ln -sf "$TORCH_LIB_PATH/libtorch.so" "$TORCH_LIB_PATH/libtorch_cpu.so"; \
     fi && \
-    ln -sf $TORCH_LIB_PATH/libtorch.so /usr/lib/libtorch.so && \
-    ln -sf $TORCH_LIB_PATH/libtorch_cuda.so /usr/lib/libtorch_cuda.so || true
+    if [ -f "$TORCH_LIB_PATH/libtorch.so" ]; then \
+        ln -sf "$TORCH_LIB_PATH/libtorch.so" /usr/lib/libtorch.so; \
+    fi && \
+    if [ -f "$TORCH_LIB_PATH/libtorch_cuda.so" ]; then \
+        ln -sf "$TORCH_LIB_PATH/libtorch_cuda.so" /usr/lib/libtorch_cuda.so; \
+    fi || true
 
 # Copy backend code
 COPY --chown=heartmula:heartmula backend/ /app/backend/
