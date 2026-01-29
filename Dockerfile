@@ -136,6 +136,8 @@ RUN export TORCH_LIB_PATH=$(python3 -c "import torch; import os; print(os.path.j
 
 # Copy backend code
 COPY --chown=heartmula:heartmula backend/ /app/backend/
+# Remove any venv that might have been copied from host to prevent confusion
+RUN rm -rf /app/backend/venv
 
 # Copy built frontend from Stage 1
 COPY --from=frontend-builder --chown=heartmula:heartmula /app/frontend/dist /app/frontend/dist

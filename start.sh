@@ -67,7 +67,7 @@ sleep 2
 
 # Start backend with auto-detection (or manual overrides)
 echo "Starting backend (auto-detecting GPU configuration)..."
-source venv/bin/activate
+# source venv/bin/activate
 env $EXTRA_ENV \
     PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
     python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 > /tmp/heartmula_backend.log 2>&1 &
