@@ -596,20 +596,16 @@ def patch_pipeline_with_callback(pipeline: HeartMuLaGenPipeline, sequential_offl
         pipeline.mula.setup_caches(bs_size)
 
         # Fix for "RoPE cache is not built" error in torchtune 0.4.0+
-        # We need to manually initialize RoPE caches on the backbone if they haven't been initialized
+        # We need to manually initialize RoPE caches on the ENTIRE model (backbone + decoder)
         try:
-            # Try to find rope_init on the backbone directly (Llama 3.1 style)
-            if hasattr(pipeline.mula.backbone, "rope_init"):
-                pipeline.mula.backbone.rope_init()
-            # Or assume it might be in layers/pos_embeddings
-            else:
-                for module in pipeline.mula.backbone.modules():
-                    if hasattr(module, "rope_init"):
-                        module.rope_init()
+            # Initialize RoPE on all modules
+            for module in pipeline.mula.modules():
+                if hasattr(module, "rope_init"):
+                    module.rope_init()
 
             # Ensure RoPE cache is on the correct device (it might be initialized on CPU by default)
             device = pipeline.mula_device
-            for module in pipeline.mula.backbone.modules():
+            for module in pipeline.mula.modules():
                 # torchtune RotaryPositionalEmbeddings stores cache in 'cache' attribute
                 if hasattr(module, "cache") and isinstance(module.cache, torch.Tensor):
                     if module.cache.device != device:
