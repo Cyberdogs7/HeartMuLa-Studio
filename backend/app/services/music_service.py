@@ -606,8 +606,18 @@ def patch_pipeline_with_callback(pipeline: HeartMuLaGenPipeline, sequential_offl
                 for module in pipeline.mula.backbone.modules():
                     if hasattr(module, "rope_init"):
                         module.rope_init()
+
+            # Ensure RoPE cache is on the correct device (it might be initialized on CPU by default)
+            device = pipeline.mula_device
+            for module in pipeline.mula.backbone.modules():
+                # torchtune RotaryPositionalEmbeddings stores cache in 'cache' attribute
+                if hasattr(module, "cache") and isinstance(module.cache, torch.Tensor):
+                    if module.cache.device != device:
+                        # print(f"[RoPE] Moving cache from {module.cache.device} to {device}", flush=True)
+                        module.cache = module.cache.to(device)
+
         except Exception as e:
-            print(f"[Warning] Failed to manualy init RoPE: {e}", flush=True)
+            print(f"[Warning] Failed to manually init/move RoPE: {e}", flush=True)
 
         with torch.autocast(device_type=pipeline.mula_device.type, dtype=pipeline.mula_dtype):
             curr_token = pipeline.mula.generate_frame(
