@@ -595,6 +595,20 @@ def patch_pipeline_with_callback(pipeline: HeartMuLaGenPipeline, sequential_offl
         bs_size = 2 if cfg_scale != 1.0 else 1
         pipeline.mula.setup_caches(bs_size)
 
+        # Fix for "RoPE cache is not built" error in torchtune 0.4.0+
+        # We need to manually initialize RoPE caches on the backbone if they haven't been initialized
+        try:
+            # Try to find rope_init on the backbone directly (Llama 3.1 style)
+            if hasattr(pipeline.mula.backbone, "rope_init"):
+                pipeline.mula.backbone.rope_init()
+            # Or assume it might be in layers/pos_embeddings
+            else:
+                for module in pipeline.mula.backbone.modules():
+                    if hasattr(module, "rope_init"):
+                        module.rope_init()
+        except Exception as e:
+            print(f"[Warning] Failed to manualy init RoPE: {e}", flush=True)
+
         with torch.autocast(device_type=pipeline.mula_device.type, dtype=pipeline.mula_dtype):
             curr_token = pipeline.mula.generate_frame(
                 tokens=prompt_tokens,
