@@ -121,8 +121,10 @@ RUN pip3 uninstall -y torchaudio torchvision || true && \
 # Layer 4: Ensure core ML libs are consistent (using system constraints)
 # We avoid force-reinstalling torch to preserve NVIDIA binaries
 # accelerate==0.0.1 is a dummy package on some mirrors; we must force a real version (>=1.0.0)
+# We install accelerate with --no-deps because pip fails to resolve the NVIDIA-specific torch version against standard PyPI requirements
 RUN pip3 uninstall -y accelerate && \
-    pip3 install --upgrade --force-reinstall --no-cache-dir transformers "accelerate>=1.0.0" bitsandbytes tokenizers sentencepiece -c /tmp/constraints.txt && \
+    pip3 install --no-cache-dir "accelerate>=1.0.0" --no-deps && \
+    pip3 install --upgrade --force-reinstall --no-cache-dir transformers bitsandbytes tokenizers sentencepiece -c /tmp/constraints.txt && \
     python3 -c "import transformers, accelerate; print(f'Transformers: {transformers.__version__}, Accelerate: {accelerate.__version__}')"
 
 # Fix runtime linking for libtorch_cuda.so (required by torchaudio)
