@@ -114,11 +114,14 @@ RUN pip3 uninstall -y torchaudio torchvision && \
 RUN pip3 install --upgrade --no-cache-dir transformers accelerate bitsandbytes tokenizers sentencepiece -c /tmp/constraints.txt
 
 # Fix runtime linking for libtorch_cuda.so (required by torchaudio)
-# We dynamically find the torch lib path to be foolproof
+# We dynamically find the torch lib path and symlink libs to /usr/lib to ensure loader finds them
 RUN export TORCH_LIB_PATH=$(python3 -c "import torch; import os; print(os.path.join(os.path.dirname(torch.__file__), 'lib'))") && \
     echo "$TORCH_LIB_PATH" > /etc/ld.so.conf.d/torch.conf && \
     ldconfig && \
-    echo "Configured ld.so with $TORCH_LIB_PATH"
+    ln -sf $TORCH_LIB_PATH/libtorch_cuda.so /usr/lib/libtorch_cuda.so && \
+    ln -sf $TORCH_LIB_PATH/libtorch_cpu.so /usr/lib/libtorch_cpu.so && \
+    ln -sf $TORCH_LIB_PATH/libtorch.so /usr/lib/libtorch.so && \
+    echo "Symlinked torch libs from $TORCH_LIB_PATH to /usr/lib"
 
 # Copy backend code
 COPY --chown=heartmula:heartmula backend/ /app/backend/
