@@ -113,6 +113,10 @@ RUN pip3 uninstall -y torchaudio torchvision && \
 # We also use constraints here to ensure they link against the system torch
 RUN pip3 install --force-reinstall --no-cache-dir transformers accelerate bitsandbytes tokenizers sentencepiece -c /tmp/constraints.txt
 
+# Fix runtime linking for libtorch_cuda.so (required by torchaudio)
+RUN echo "/usr/local/lib/python3.10/dist-packages/torch/lib" > /etc/ld.so.conf.d/torch.conf && \
+    ldconfig
+
 # Copy backend code
 COPY --chown=heartmula:heartmula backend/ /app/backend/
 
