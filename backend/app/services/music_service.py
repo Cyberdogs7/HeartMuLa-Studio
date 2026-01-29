@@ -1272,10 +1272,10 @@ class MusicService:
                     torch_dtype=torch.bfloat16,
                 )
 
-                print(f"[Models] Loading HeartCodec (CPU)...", flush=True)
+                print(f"[Models] Loading HeartCodec (CUDA)...", flush=True)
                 heartcodec = HeartCodec.from_pretrained(
                     codec_path,
-                    device_map="cpu",
+                    device_map="cuda",
                     dtype=torch.float32,
                     ignore_mismatched_sizes=True,  # Fix for "initted" buffer mismatch
                 )
@@ -1284,7 +1284,7 @@ class MusicService:
                     heartmula_path=mula_path,
                     heartcodec_path=codec_path,
                     heartmula_device=torch.device("cuda"),
-                    heartcodec_device=torch.device("cpu"),
+                    heartcodec_device=torch.device("cuda"),
                     heartmula_dtype=torch.bfloat16,
                     heartcodec_dtype=torch.float32,
                     lazy_load=True,
