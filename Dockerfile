@@ -25,7 +25,7 @@ RUN npm run build
 # =============================================================================
 # Use NVIDIA PyTorch container which includes CUDA and PyTorch pre-installed
 # and is optimized for ARM64/GH100
-FROM nvcr.io/nvidia/pytorch:24.02-py3
+FROM nvcr.io/nvidia/pytorch:24.10-py3
 
 # Prevent interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
@@ -68,57 +68,42 @@ RUN pip3 install --no-cache-dir "numpy<2"
 RUN pip3 install --no-cache-dir triton && \
     pip3 install --no-cache-dir --no-binary soxr soxr
 
-# Note: PyTorch, torchvision, and torchaudio are already installed in the base image.
-# We skip installing them manually to avoid conflicts and leverage the optimized versions.
-
 # Generate constraints file to lock system packages (torch, numpy, torchaudio, torchvision)
 # We include all torch packages to prevent pip from upgrading them
 RUN pip3 freeze | grep -E "^torch|^numpy" > /tmp/constraints.txt
+
+# Note: PyTorch, torchvision, and torchaudio are typically installed in the base image.
+# However, to be safe, we explicitly ensure torchaudio/torchvision are present using system constraints.
+RUN pip3 install --no-cache-dir torchaudio torchvision -c /tmp/constraints.txt || true
 
 # Layer 2: Other requirements (using constraints to protect system packages)
 # We manually handle heartlib to patch its numpy requirement, so we remove it from requirements.txt first
 RUN sed -i '/heartlib/d' /app/backend/requirements.txt && \
     pip3 install --no-cache-dir -r /app/backend/requirements.txt -c /tmp/constraints.txt
 
-# Layer 2.4: Install compatible torchtune/torchao (missing from base image)
-# We pin older versions compatible with PyTorch 2.3.0a0 (Feb 2024)
-RUN pip3 install --no-cache-dir torchtune==0.1.0 torchao==0.1 -c /tmp/constraints.txt
+# Layer 2.4: Explicitly install torchtune/torchao (safety net)
+# We install these without deps first to avoid fighting with system constraints, then let heartlib upgrade if needed
+RUN pip3 install --no-cache-dir torchtune==0.4.0 torchao==0.9.0 --no-deps
 
 # Layer 2.5: Install patched heartlib (removing strict requirements to use system packages)
 RUN git clone https://github.com/HeartMuLa/heartlib.git /tmp/heartlib && \
     # Remove strict dependency checks to prevent pip from conflicting with system packages
-    sed -i '/numpy/d' /tmp/heartlib/pyproject.toml || true && \
-    sed -i '/numpy/d' /tmp/heartlib/setup.py || true && \
-    sed -i '/torch/d' /tmp/heartlib/pyproject.toml || true && \
-    sed -i '/torch/d' /tmp/heartlib/setup.py || true && \
-    sed -i '/torchaudio/d' /tmp/heartlib/pyproject.toml || true && \
-    sed -i '/torchaudio/d' /tmp/heartlib/setup.py || true && \
-    sed -i '/torchvision/d' /tmp/heartlib/pyproject.toml || true && \
-    sed -i '/torchvision/d' /tmp/heartlib/setup.py || true && \
-    sed -i '/bitsandbytes/d' /tmp/heartlib/pyproject.toml || true && \
-    sed -i '/bitsandbytes/d' /tmp/heartlib/setup.py || true && \
-    sed -i '/torchtune/d' /tmp/heartlib/pyproject.toml || true && \
-    sed -i '/torchtune/d' /tmp/heartlib/setup.py || true && \
-    sed -i '/torchao/d' /tmp/heartlib/pyproject.toml || true && \
-    sed -i '/torchao/d' /tmp/heartlib/setup.py || true && \
+    # We use restrictive regex to avoiding deleting 'torchtune' when deleting 'torch'
+    sed -i '/"numpy==/d' /tmp/heartlib/pyproject.toml || true && \
+    sed -i '/"torch==/d' /tmp/heartlib/pyproject.toml || true && \
+    sed -i '/"torchaudio==/d' /tmp/heartlib/pyproject.toml || true && \
+    sed -i '/"torchvision==/d' /tmp/heartlib/pyproject.toml || true && \
+    # Setup.py often uses different formatting, we try to be safe but effective
+    sed -i "/install_requires/,/]/ s/'numpy.*'//" /tmp/heartlib/setup.py || true && \
+    sed -i "/install_requires/,/]/ s/'torch==.*'//" /tmp/heartlib/setup.py || true && \
+    sed -i "/install_requires/,/]/ s/'torchaudio==.*'//" /tmp/heartlib/setup.py || true && \
+    sed -i "/install_requires/,/]/ s/'torchvision==.*'//" /tmp/heartlib/setup.py || true && \
+    # We allow heartlib to install its preferred torchtune/torchao as we are on PyTorch 2.5 now
     pip3 install --no-cache-dir /tmp/heartlib -c /tmp/constraints.txt && \
     rm -rf /tmp/heartlib
 
-# Layer 3: Rebuild torchaudio/torchvision from source to match system torch ABI
-# We use specific commits from Jan 2024 to match the PyTorch 2.3.0a0+ebedce2 version in the base image.
-# This prevents ABI mismatches (undefined symbols) and ensures compatibility.
-RUN pip3 uninstall -y torchaudio torchvision || true && \
-    cd /tmp && \
-    git clone https://github.com/pytorch/audio.git && \
-    cd audio && \
-    git checkout 258169e53f1c662a9b1c787031ebdc5d7dfb7935 && \
-    USE_CUDA=0 pip3 install . --no-deps --no-build-isolation --no-cache-dir && \
-    cd .. && rm -rf audio && \
-    git clone https://github.com/pytorch/vision.git && \
-    cd vision && \
-    git checkout 71b27a00eefc1b169d1469434c656dd4c0a5b18d && \
-    pip3 install . --no-deps --no-build-isolation --no-cache-dir && \
-    cd .. && rm -rf vision
+# Layer 3: Skipped (using system torchaudio/torchvision from 24.10)
+# The new base image (24.10) includes compatible versions of these libraries.
 
 # Layer 4: Ensure core ML libs are consistent (using system constraints)
 # We avoid force-reinstalling torch to preserve NVIDIA binaries
