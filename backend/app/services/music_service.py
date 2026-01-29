@@ -1199,38 +1199,83 @@ class MusicService:
                 # Sequential offload mode for 12GB GPUs without quantization
                 # Both models on same GPU but loaded/unloaded sequentially
                 print("[Sequential Offload] ENABLED - models will be swapped between GPU and CPU", flush=True)
-                pipeline = HeartMuLaGenPipeline.from_pretrained(
-                    model_path,
-                    device={
-                        "mula": torch.device("cuda"),
-                        "codec": torch.device("cuda"),  # Will be loaded when needed
-                    },
-                    dtype={
-                        "mula": torch.bfloat16,
-                        "codec": torch.float32,
-                    },
-                    version=version,
-                    lazy_load=True,
+
+                from heartlib.pipelines.music_generation import _resolve_paths
+                mula_path, codec_path, tokenizer_path, gen_config_path = _resolve_paths(model_path, version)
+                tokenizer = Tokenizer.from_file(tokenizer_path)
+                gen_config = HeartMuLaGenConfig.from_file(gen_config_path)
+
+                # Manually load HeartMuLa
+                heartmula = HeartMuLa.from_pretrained(
+                    mula_path,
+                    device_map="cuda",
+                    torch_dtype=torch.bfloat16,
                 )
+
+                # We do NOT load codec here for sequential offload (it's lazy),
+                # but we must ensure when it IS loaded (in generate callback), it uses ignore_mismatched_sizes.
+                # The callback patching handles that part.
+                # However, we must instantiate the pipeline manually to inject the tokenizer/config properly
+                # and avoid the default from_pretrained behavior which might try to load things.
+
+                pipeline = HeartMuLaGenPipeline(
+                    heartmula_path=mula_path,
+                    heartcodec_path=codec_path,
+                    heartmula_device=torch.device("cuda"),
+                    heartcodec_device=torch.device("cuda"),
+                    heartmula_dtype=torch.bfloat16,
+                    heartcodec_dtype=torch.float32,
+                    lazy_load=True,
+                    muq_mulan=None,
+                    text_tokenizer=tokenizer,
+                    config=gen_config,
+                )
+                pipeline._mula = heartmula
+                pipeline._codec = None # Lazy load
+                pipeline._codec_path = codec_path # Needed for lazy loading
+
                 # Apply torch.compile if enabled
                 if use_compile:
                     pipeline._mula = apply_torch_compile(pipeline._mula, compile_mode)
                 return patch_pipeline_with_callback(pipeline, sequential_offload=True)
             else:
                 # Without quantization, use lazy loading - codec stays on CPU
-                pipeline = HeartMuLaGenPipeline.from_pretrained(
-                    model_path,
-                    device={
-                        "mula": torch.device("cuda"),
-                        "codec": torch.device("cpu"),
-                    },
-                    dtype={
-                        "mula": torch.bfloat16,
-                        "codec": torch.float32,
-                    },
-                    version=version,
-                    lazy_load=True,
+                from heartlib.pipelines.music_generation import _resolve_paths
+                mula_path, codec_path, tokenizer_path, gen_config_path = _resolve_paths(model_path, version)
+                tokenizer = Tokenizer.from_file(tokenizer_path)
+                gen_config = HeartMuLaGenConfig.from_file(gen_config_path)
+
+                print(f"[Models] Loading HeartMuLa (Full Precision)...", flush=True)
+                heartmula = HeartMuLa.from_pretrained(
+                    mula_path,
+                    device_map="cuda",
+                    torch_dtype=torch.bfloat16,
                 )
+
+                print(f"[Models] Loading HeartCodec (CPU)...", flush=True)
+                heartcodec = HeartCodec.from_pretrained(
+                    codec_path,
+                    device_map="cpu",
+                    dtype=torch.float32,
+                    ignore_mismatched_sizes=True,  # Fix for "initted" buffer mismatch
+                )
+
+                pipeline = HeartMuLaGenPipeline(
+                    heartmula_path=mula_path,
+                    heartcodec_path=codec_path,
+                    heartmula_device=torch.device("cuda"),
+                    heartcodec_device=torch.device("cpu"),
+                    heartmula_dtype=torch.bfloat16,
+                    heartcodec_dtype=torch.float32,
+                    lazy_load=True,
+                    muq_mulan=None,
+                    text_tokenizer=tokenizer,
+                    config=gen_config,
+                )
+                pipeline._mula = heartmula
+                pipeline._codec = heartcodec
+                pipeline.lazy_load = False
+
                 # Apply torch.compile if enabled
                 if use_compile:
                     pipeline._mula = apply_torch_compile(pipeline._mula, compile_mode)
