@@ -71,9 +71,9 @@ RUN pip3 install --no-cache-dir triton && \
 # Note: PyTorch, torchvision, and torchaudio are already installed in the base image.
 # We skip installing them manually to avoid conflicts and leverage the optimized versions.
 
-# Generate constraints file to lock system packages (torch, numpy)
-# We exclude torchaudio/torchvision from constraints because we will rebuild them
-RUN pip3 freeze | grep -E "^torch==|^numpy" > /tmp/constraints.txt
+# Generate constraints file to lock system packages (torch, numpy, torchaudio, torchvision)
+# We include all torch packages to prevent pip from upgrading them
+RUN pip3 freeze | grep -E "^torch|^numpy" > /tmp/constraints.txt
 
 # Layer 2: Other requirements (using constraints to protect system packages)
 # We manually handle heartlib to patch its numpy requirement, so we remove it from requirements.txt first
@@ -83,32 +83,21 @@ RUN sed -i '/heartlib/d' /app/backend/requirements.txt && \
 # Layer 2.5: Install patched heartlib (removing strict requirements to use system packages)
 RUN git clone https://github.com/HeartMuLa/heartlib.git /tmp/heartlib && \
     # Remove strict dependency checks to prevent pip from conflicting with system packages
-    sed -i '/numpy==/d' /tmp/heartlib/pyproject.toml || true && \
-    sed -i '/numpy==/d' /tmp/heartlib/setup.py || true && \
-    sed -i '/torch==/d' /tmp/heartlib/pyproject.toml || true && \
-    sed -i '/torch==/d' /tmp/heartlib/setup.py || true && \
-    sed -i '/torchaudio==/d' /tmp/heartlib/pyproject.toml || true && \
-    sed -i '/torchaudio==/d' /tmp/heartlib/setup.py || true && \
-    sed -i '/torchvision==/d' /tmp/heartlib/pyproject.toml || true && \
-    sed -i '/torchvision==/d' /tmp/heartlib/setup.py || true && \
-    sed -i '/bitsandbytes==/d' /tmp/heartlib/pyproject.toml || true && \
-    sed -i '/bitsandbytes==/d' /tmp/heartlib/setup.py || true && \
+    sed -i '/numpy/d' /tmp/heartlib/pyproject.toml || true && \
+    sed -i '/numpy/d' /tmp/heartlib/setup.py || true && \
+    sed -i '/torch/d' /tmp/heartlib/pyproject.toml || true && \
+    sed -i '/torch/d' /tmp/heartlib/setup.py || true && \
+    sed -i '/torchaudio/d' /tmp/heartlib/pyproject.toml || true && \
+    sed -i '/torchaudio/d' /tmp/heartlib/setup.py || true && \
+    sed -i '/torchvision/d' /tmp/heartlib/pyproject.toml || true && \
+    sed -i '/torchvision/d' /tmp/heartlib/setup.py || true && \
+    sed -i '/bitsandbytes/d' /tmp/heartlib/pyproject.toml || true && \
+    sed -i '/bitsandbytes/d' /tmp/heartlib/setup.py || true && \
     pip3 install --no-cache-dir /tmp/heartlib -c /tmp/constraints.txt && \
     rm -rf /tmp/heartlib
 
-# Layer 3: Rebuild torchaudio/torchvision from source to match system torch ABI
-# We use USE_CUDA=0 for torchaudio to prevent linker errors with libtorch_cuda.so,
-# as most audio I/O doesn't need custom CUDA kernels.
-RUN pip3 uninstall -y torchaudio torchvision && \
-    cd /tmp && \
-    git clone --depth 1 -b v2.3.0 https://github.com/pytorch/audio.git && \
-    cd audio && \
-    USE_CUDA=0 pip3 install . --no-deps --no-build-isolation --no-cache-dir && \
-    cd .. && rm -rf audio && \
-    git clone --depth 1 -b v0.18.0 https://github.com/pytorch/vision.git && \
-    cd vision && \
-    pip3 install . --no-deps --no-build-isolation --no-cache-dir && \
-    cd .. && rm -rf vision
+# Layer 3: Skipped (using system torchaudio/torchvision)
+# We rely on the pre-installed versions from the base image to ensure ABI compatibility.
 
 # Layer 4: Ensure core ML libs are consistent (using system constraints)
 # We avoid force-reinstalling torch to preserve NVIDIA binaries
