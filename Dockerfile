@@ -72,10 +72,6 @@ RUN pip3 install --no-cache-dir triton && \
 # We use pip list --format=freeze to avoid file:// paths that break builds in NVIDIA containers
 RUN pip3 list --format=freeze | grep -E "^torch|^numpy" > /tmp/constraints.txt
 
-# Note: PyTorch, torchvision, and torchaudio are typically installed in the base image.
-# However, to be safe, we explicitly ensure torchaudio/torchvision are present using system constraints.
-RUN pip3 install --no-cache-dir torchaudio torchvision -c /tmp/constraints.txt || true
-
 # Layer 2: Other requirements (using constraints to protect system packages)
 # We manually handle heartlib to patch its numpy requirement, so we remove it from requirements.txt first
 RUN sed -i '/heartlib/d' /app/backend/requirements.txt && \
@@ -102,8 +98,21 @@ RUN git clone https://github.com/HeartMuLa/heartlib.git /tmp/heartlib && \
     pip3 install --no-cache-dir /tmp/heartlib -c /tmp/constraints.txt && \
     rm -rf /tmp/heartlib
 
-# Layer 3: Skipped (using system torchaudio/torchvision from 24.10)
-# The new base image (24.10) includes compatible versions of these libraries.
+# Layer 3: Rebuild torchaudio/torchvision from source to match system torch ABI (PyTorch 2.5)
+# We use specific commits from Oct 2024 to match the PyTorch 2.5.0a0 version in the base image.
+# This prevents ABI mismatches (undefined symbols) and ensures compatibility.
+RUN pip3 uninstall -y torchaudio torchvision || true && \
+    cd /tmp && \
+    git clone https://github.com/pytorch/audio.git && \
+    cd audio && \
+    git checkout fa44bdab1fe49bab58389e7b6a33061ffced9bc7 && \
+    USE_CUDA=0 pip3 install . --no-deps --no-build-isolation --no-cache-dir && \
+    cd .. && rm -rf audio && \
+    git clone https://github.com/pytorch/vision.git && \
+    cd vision && \
+    git checkout e9a3213524a0abd609ac7330cf170b9e19917d39 && \
+    pip3 install . --no-deps --no-build-isolation --no-cache-dir && \
+    cd .. && rm -rf vision
 
 # Layer 4: Ensure core ML libs are consistent (using system constraints)
 # We avoid force-reinstalling torch to preserve NVIDIA binaries
