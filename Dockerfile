@@ -96,23 +96,26 @@ RUN git clone https://github.com/HeartMuLa/heartlib.git /tmp/heartlib && \
     pip3 install --no-cache-dir /tmp/heartlib -c /tmp/constraints.txt && \
     rm -rf /tmp/heartlib
 
-# Layer 3: Rebuild torchaudio/torchvision from source to match system torch ABI
-# We use USE_CUDA=0 for torchaudio to prevent linker errors with libtorch_cuda.so,
-# as most audio I/O doesn't need custom CUDA kernels.
+# Layer 3: Install NVIDIA-optimized torchaudio/torchvision wheels
+# We use the NVIDIA index to ensure ABI compatibility with the base image's PyTorch
 RUN pip3 uninstall -y torchaudio torchvision && \
-    cd /tmp && \
-    git clone --depth 1 -b v2.3.0 https://github.com/pytorch/audio.git && \
-    cd audio && \
-    USE_CUDA=0 pip3 install . --no-deps --no-build-isolation --no-cache-dir && \
-    cd .. && rm -rf audio && \
-    git clone --depth 1 -b v0.18.0 https://github.com/pytorch/vision.git && \
-    cd vision && \
-    pip3 install . --no-deps --no-build-isolation --no-cache-dir && \
-    cd .. && rm -rf vision
+    pip3 install --no-cache-dir --index-url https://pypi.nvidia.com torchaudio torchvision
 
 # Layer 4: Ensure core ML libs are consistent (using system constraints)
 # We avoid force-reinstalling torch to preserve NVIDIA binaries
 RUN pip3 install --upgrade --no-cache-dir transformers accelerate bitsandbytes tokenizers sentencepiece -c /tmp/constraints.txt
+
+# Fix runtime linking for libtorch_cuda.so (required by torchaudio)
+# We dynamically find the torch lib path and symlink libs to /usr/lib to ensure loader finds them
+RUN export TORCH_LIB_PATH=$(python3 -c "import torch; import os; print(os.path.join(os.path.dirname(torch.__file__), 'lib'))") && \
+    echo "$TORCH_LIB_PATH" > /etc/ld.so.conf.d/torch.conf && \
+    ldconfig && \
+    if [ -f "$TORCH_LIB_PATH/libtorch.so" ]; then \
+        ln -sf "$TORCH_LIB_PATH/libtorch.so" "$TORCH_LIB_PATH/libtorch_cuda.so"; \
+        ln -sf "$TORCH_LIB_PATH/libtorch.so" "$TORCH_LIB_PATH/libtorch_cpu.so"; \
+    fi && \
+    ln -sf $TORCH_LIB_PATH/libtorch.so /usr/lib/libtorch.so && \
+    ln -sf $TORCH_LIB_PATH/libtorch_cuda.so /usr/lib/libtorch_cuda.so || true
 
 # Copy backend code
 COPY --chown=heartmula:heartmula backend/ /app/backend/
