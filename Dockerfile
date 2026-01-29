@@ -89,11 +89,15 @@ RUN git clone https://github.com/HeartMuLa/heartlib.git /tmp/heartlib && \
     sed -i '/"torch==/d' /tmp/heartlib/pyproject.toml || true && \
     sed -i '/"torchaudio==/d' /tmp/heartlib/pyproject.toml || true && \
     sed -i '/"torchvision==/d' /tmp/heartlib/pyproject.toml || true && \
+    sed -i '/"transformers==/d' /tmp/heartlib/pyproject.toml || true && \
+    sed -i '/"accelerate==/d' /tmp/heartlib/pyproject.toml || true && \
     # Setup.py often uses different formatting, we try to be safe but effective
     sed -i "/install_requires/,/]/ s/'numpy.*'//" /tmp/heartlib/setup.py || true && \
     sed -i "/install_requires/,/]/ s/'torch==.*'//" /tmp/heartlib/setup.py || true && \
     sed -i "/install_requires/,/]/ s/'torchaudio==.*'//" /tmp/heartlib/setup.py || true && \
     sed -i "/install_requires/,/]/ s/'torchvision==.*'//" /tmp/heartlib/setup.py || true && \
+    sed -i "/install_requires/,/]/ s/'transformers==.*'//" /tmp/heartlib/setup.py || true && \
+    sed -i "/install_requires/,/]/ s/'accelerate==.*'//" /tmp/heartlib/setup.py || true && \
     # We allow heartlib to install its preferred torchtune/torchao as we are on PyTorch 2.5 now
     pip3 install --no-cache-dir /tmp/heartlib -c /tmp/constraints.txt && \
     rm -rf /tmp/heartlib
@@ -116,7 +120,8 @@ RUN pip3 uninstall -y torchaudio torchvision || true && \
 
 # Layer 4: Ensure core ML libs are consistent (using system constraints)
 # We avoid force-reinstalling torch to preserve NVIDIA binaries
-RUN pip3 install --upgrade --force-reinstall --no-cache-dir transformers accelerate bitsandbytes tokenizers sentencepiece -c /tmp/constraints.txt
+RUN pip3 install --upgrade --force-reinstall --no-cache-dir transformers accelerate bitsandbytes tokenizers sentencepiece -c /tmp/constraints.txt && \
+    python3 -c "import transformers, accelerate; print(f'Transformers: {transformers.__version__}, Accelerate: {accelerate.__version__}')"
 
 # Fix runtime linking for libtorch_cuda.so (required by torchaudio)
 # We dynamically find the torch lib path and symlink libs to /usr/lib to ensure loader finds them
