@@ -80,6 +80,10 @@ RUN pip3 freeze | grep -E "^torch|^numpy" > /tmp/constraints.txt
 RUN sed -i '/heartlib/d' /app/backend/requirements.txt && \
     pip3 install --no-cache-dir -r /app/backend/requirements.txt -c /tmp/constraints.txt
 
+# Layer 2.4: Install compatible torchtune/torchao (missing from base image)
+# We pin older versions compatible with PyTorch 2.3.0a0 (Feb 2024)
+RUN pip3 install --no-cache-dir torchtune==0.1.0 torchao==0.1 -c /tmp/constraints.txt
+
 # Layer 2.5: Install patched heartlib (removing strict requirements to use system packages)
 RUN git clone https://github.com/HeartMuLa/heartlib.git /tmp/heartlib && \
     # Remove strict dependency checks to prevent pip from conflicting with system packages
@@ -93,6 +97,10 @@ RUN git clone https://github.com/HeartMuLa/heartlib.git /tmp/heartlib && \
     sed -i '/torchvision/d' /tmp/heartlib/setup.py || true && \
     sed -i '/bitsandbytes/d' /tmp/heartlib/pyproject.toml || true && \
     sed -i '/bitsandbytes/d' /tmp/heartlib/setup.py || true && \
+    sed -i '/torchtune/d' /tmp/heartlib/pyproject.toml || true && \
+    sed -i '/torchtune/d' /tmp/heartlib/setup.py || true && \
+    sed -i '/torchao/d' /tmp/heartlib/pyproject.toml || true && \
+    sed -i '/torchao/d' /tmp/heartlib/setup.py || true && \
     pip3 install --no-cache-dir /tmp/heartlib -c /tmp/constraints.txt && \
     rm -rf /tmp/heartlib
 
