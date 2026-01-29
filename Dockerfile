@@ -69,8 +69,8 @@ RUN pip3 install --no-cache-dir triton && \
     pip3 install --no-cache-dir --no-binary soxr soxr
 
 # Generate constraints file to lock system packages (torch, numpy, torchaudio, torchvision)
-# We include all torch packages to prevent pip from upgrading them
-RUN pip3 freeze | grep -E "^torch|^numpy" > /tmp/constraints.txt
+# We use pip list --format=freeze to avoid file:// paths that break builds in NVIDIA containers
+RUN pip3 list --format=freeze | grep -E "^torch|^numpy" > /tmp/constraints.txt
 
 # Note: PyTorch, torchvision, and torchaudio are typically installed in the base image.
 # However, to be safe, we explicitly ensure torchaudio/torchvision are present using system constraints.
