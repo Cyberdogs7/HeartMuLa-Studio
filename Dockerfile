@@ -116,7 +116,7 @@ RUN pip3 uninstall -y torchaudio torchvision || true && \
 
 # Layer 4: Ensure core ML libs are consistent (using system constraints)
 # We avoid force-reinstalling torch to preserve NVIDIA binaries
-RUN pip3 install --upgrade --no-cache-dir transformers accelerate bitsandbytes tokenizers sentencepiece -c /tmp/constraints.txt
+RUN pip3 install --upgrade --force-reinstall --no-cache-dir transformers accelerate bitsandbytes tokenizers sentencepiece -c /tmp/constraints.txt
 
 # Fix runtime linking for libtorch_cuda.so (required by torchaudio)
 # We dynamically find the torch lib path and symlink libs to /usr/lib to ensure loader finds them
