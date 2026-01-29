@@ -96,22 +96,9 @@ RUN git clone https://github.com/HeartMuLa/heartlib.git /tmp/heartlib && \
     pip3 install --no-cache-dir /tmp/heartlib -c /tmp/constraints.txt && \
     rm -rf /tmp/heartlib
 
-# Layer 3: Rebuild torchaudio/torchvision from source to match system torch ABI
-# This resolves "OSError: undefined symbol" and "ModuleNotFoundError"
-RUN pip3 uninstall -y torchaudio torchvision && \
-    cd /tmp && \
-    git clone --depth 1 -b v2.3.0 https://github.com/pytorch/audio.git && \
-    cd audio && \
-    pip3 install . --no-deps --no-build-isolation --no-cache-dir && \
-    cd .. && rm -rf audio && \
-    git clone --depth 1 -b v0.18.0 https://github.com/pytorch/vision.git && \
-    cd vision && \
-    pip3 install . --no-deps --no-build-isolation --no-cache-dir && \
-    cd .. && rm -rf vision
-
-# Layer 4: Force clean reinstall of core ML libs to fix 'GenerationMixin' errors
-# We also use constraints here to ensure they link against the system torch
-RUN pip3 install --force-reinstall --no-cache-dir transformers accelerate bitsandbytes tokenizers sentencepiece -c /tmp/constraints.txt
+# Layer 3: Ensure core ML libs are consistent (using system constraints)
+# We avoid force-reinstalling torch/audio/vision to preserve NVIDIA binaries
+RUN pip3 install --upgrade --no-cache-dir transformers accelerate bitsandbytes tokenizers sentencepiece -c /tmp/constraints.txt
 
 # Fix runtime linking for libtorch_cuda.so (required by torchaudio)
 RUN echo "/usr/local/lib/python3.10/dist-packages/torch/lib" > /etc/ld.so.conf.d/torch.conf && \
