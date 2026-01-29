@@ -156,7 +156,7 @@ ENV PYTHONUNBUFFERED=1 \
 EXPOSE 8000
 
 # Switch to non-root user
-USER heartmula
+# USER heartmula
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
