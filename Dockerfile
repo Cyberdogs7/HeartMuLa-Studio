@@ -96,10 +96,19 @@ RUN git clone https://github.com/HeartMuLa/heartlib.git /tmp/heartlib && \
     pip3 install --no-cache-dir /tmp/heartlib -c /tmp/constraints.txt && \
     rm -rf /tmp/heartlib
 
-# Layer 3: Install NVIDIA-optimized torchaudio/torchvision wheels
-# We use the NVIDIA index to ensure ABI compatibility with the base image's PyTorch
+# Layer 3: Rebuild torchaudio/torchvision from source to match system torch ABI
+# We use USE_CUDA=0 for torchaudio to prevent linker errors with libtorch_cuda.so,
+# as most audio I/O doesn't need custom CUDA kernels.
 RUN pip3 uninstall -y torchaudio torchvision && \
-    pip3 install --no-cache-dir --index-url https://pypi.nvidia.com torchaudio torchvision
+    cd /tmp && \
+    git clone --depth 1 -b v2.3.0 https://github.com/pytorch/audio.git && \
+    cd audio && \
+    USE_CUDA=0 pip3 install . --no-deps --no-build-isolation --no-cache-dir && \
+    cd .. && rm -rf audio && \
+    git clone --depth 1 -b v0.18.0 https://github.com/pytorch/vision.git && \
+    cd vision && \
+    pip3 install . --no-deps --no-build-isolation --no-cache-dir && \
+    cd .. && rm -rf vision
 
 # Layer 4: Ensure core ML libs are consistent (using system constraints)
 # We avoid force-reinstalling torch to preserve NVIDIA binaries
